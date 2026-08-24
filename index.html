@@ -128,14 +128,25 @@
     <section class="bg-white rounded-lg shadow-sm border border-dinas-100 overflow-hidden">
       <div class="bg-dinas-800 px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 class="text-white font-semibold tracking-wide text-sm sm:text-base">Riwayat Absensi</h2>
-        <div class="flex flex-wrap gap-2 no-print">
-          <button id="btnCSV" class="inline-flex items-center gap-1.5 bg-gold-500 hover:bg-gold-600 text-dinas-900 text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-md shadow transition-colors">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M7 10l5 5 5-5M12 15V3"/></svg>
-            Download Rekap (Excel)
-          </button>
-          <button id="btnHapus" class="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-md shadow transition-colors">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9.5 7V4a1 1 0 011-1h3a1 1 0 011 1v3M4 7h16"/></svg>
-            Hapus Semua Data
+        <div class="flex flex-wrap items-center gap-2 no-print">
+          <span id="adminActions" class="hidden flex-wrap gap-2">
+            <button id="btnCSV" class="inline-flex items-center gap-1.5 bg-gold-500 hover:bg-gold-600 text-dinas-900 text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-md shadow transition-colors">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M7 10l5 5 5-5M12 15V3"/></svg>
+              Download Rekap (Excel)
+            </button>
+            <button id="btnHapus" class="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-md shadow transition-colors">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9.5 7V4a1 1 0 011-1h3a1 1 0 011 1v3M4 7h16"/></svg>
+              Hapus Semua Data
+            </button>
+          </span>
+          <span id="adminBadge" class="hidden items-center gap-2 bg-dinas-50 border border-dinas-100 text-dinas-800 text-xs font-medium px-3 py-1.5 rounded-md">
+            <svg class="h-4 w-4 text-gold-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            Mode Admin
+            <button id="btnLogoutAdmin" class="underline hover:text-dinas-600">Keluar</button>
+          </span>
+          <button id="btnLoginAdmin" class="inline-flex items-center gap-1.5 bg-dinas-700 hover:bg-dinas-800 text-white text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-md shadow transition-colors">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            Login Admin
           </button>
         </div>
       </div>
@@ -173,11 +184,120 @@
     </footer>
   </main>
 
+  <!-- MODAL LOGIN ADMIN -->
+  <div id="modalAdmin" class="hidden fixed inset-0 bg-dinas-900/60 z-50 flex items-center justify-center px-4 no-print">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-sm overflow-hidden">
+      <div class="bg-dinas-800 px-5 py-3 flex items-center justify-between">
+        <h3 class="text-white font-semibold text-sm sm:text-base">Login Admin / Moderator</h3>
+        <button id="btnCloseModal" class="text-white/70 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+      <form id="formLoginAdmin" class="p-5 space-y-4">
+        <p class="text-sm text-dinas-700">Fitur <strong>Download Rekap</strong> dan <strong>Hapus Semua Data</strong> hanya dapat diakses oleh admin/moderator. Masukkan kata sandi admin untuk melanjutkan.</p>
+        <div>
+          <label for="passAdmin" class="block text-sm font-medium text-dinas-800 mb-1">Kata Sandi Admin</label>
+          <input type="password" id="passAdmin" name="passAdmin" required autocomplete="current-password"
+            class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-dinas-600 focus:border-dinas-600">
+        </div>
+        <p id="loginAdminMsg" class="text-sm hidden"></p>
+        <button type="submit" class="w-full bg-dinas-700 hover:bg-dinas-800 text-white font-semibold py-2.5 rounded-md shadow transition-colors">Masuk</button>
+      </form>
+    </div>
+  </div>
+
 <script>
 (function () {
   'use strict';
 
   const STORAGE_KEY = 'absensi_cadangan_dinas_v1';
+
+  // ---------- Admin / Moderator Gate ----------
+  // Kata sandi default: admin123  (SEGERA GANTI: ganti nilai ADMIN_PASSWORD_HASH
+  // dengan hash SHA-256 dari kata sandi baru Anda. Contoh membuatnya di console
+  // browser: crypto.subtle.digest('SHA-256', new TextEncoder().encode('kata_sandi_baru'))
+  // lalu ubah ke hex string.)
+  const ADMIN_PASSWORD_HASH = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
+  const ADMIN_SESSION_KEY = 'absensi_admin_session_v1';
+
+  async function sha256Hex(text) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function isAdmin() {
+    return sessionStorage.getItem(ADMIN_SESSION_KEY) === '1';
+  }
+
+  function setAdminMode(aktif) {
+    if (aktif) {
+      sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+    } else {
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    }
+    updateAdminUI();
+  }
+
+  function updateAdminUI() {
+    const admin = isAdmin();
+    const adminActions = document.getElementById('adminActions');
+    const adminBadge = document.getElementById('adminBadge');
+    const btnLoginAdmin = document.getElementById('btnLoginAdmin');
+    if (adminActions) adminActions.classList.toggle('hidden', !admin);
+    if (adminActions) adminActions.classList.toggle('flex', admin);
+    if (adminBadge) adminBadge.classList.toggle('hidden', !admin);
+    if (adminBadge) adminBadge.classList.toggle('flex', admin);
+    if (btnLoginAdmin) btnLoginAdmin.classList.toggle('hidden', admin);
+  }
+
+  function openModalAdmin() {
+    const modal = document.getElementById('modalAdmin');
+    const msg = document.getElementById('loginAdminMsg');
+    const pass = document.getElementById('passAdmin');
+    if (msg) msg.classList.add('hidden');
+    if (pass) pass.value = '';
+    if (modal) modal.classList.remove('hidden');
+    if (pass) pass.focus();
+  }
+
+  function closeModalAdmin() {
+    const modal = document.getElementById('modalAdmin');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  document.getElementById('btnLoginAdmin').addEventListener('click', openModalAdmin);
+  document.getElementById('btnCloseModal').addEventListener('click', closeModalAdmin);
+  document.getElementById('modalAdmin').addEventListener('click', function (e) {
+    if (e.target === this) closeModalAdmin();
+  });
+  document.getElementById('btnLogoutAdmin').addEventListener('click', function () {
+    setAdminMode(false);
+    showMsgGlobal('Anda telah keluar dari Mode Admin.');
+  });
+
+  document.getElementById('formLoginAdmin').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const pass = document.getElementById('passAdmin').value;
+    const msg = document.getElementById('loginAdminMsg');
+    const hash = await sha256Hex(pass);
+    if (hash === ADMIN_PASSWORD_HASH) {
+      setAdminMode(true);
+      closeModalAdmin();
+      showMsgGlobal('Login admin berhasil. Fitur Download & Hapus kini aktif.');
+    } else {
+      msg.textContent = 'Kata sandi admin salah. Silakan coba lagi.';
+      msg.className = 'text-sm text-red-600';
+      msg.classList.remove('hidden');
+    }
+  });
+
+  function showMsgGlobal(text) {
+    const el = document.getElementById('statusSync');
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'text-xs text-dinas-700';
+    setTimeout(() => { el.textContent = ''; }, 4000);
+  }
+
+  updateAdminUI();
 
   // ---------- Integrasi Google Spreadsheet ----------
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzZRL2rt6goTTn4t7lBbHJlpRqgNxxsY1QP8W0y0ZRztlRf5MGFEHI3qvUOGW-xrialmQ/exec';
@@ -426,6 +546,11 @@
 
   // ---------- Download Rekap Excel (.xlsx) yang rapi ----------
   document.getElementById('btnCSV').addEventListener('click', async function () {
+    if (!isAdmin()) {
+      alert('Hanya admin/moderator yang dapat mengunduh data. Silakan login terlebih dahulu.');
+      openModalAdmin();
+      return;
+    }
     const data = getData();
     if (data.length === 0) {
       alert('Belum ada data untuk diunduh.');
@@ -562,6 +687,11 @@
 
   // ---------- Hapus Semua Data ----------
   document.getElementById('btnHapus').addEventListener('click', function () {
+    if (!isAdmin()) {
+      alert('Hanya admin/moderator yang dapat menghapus data. Silakan login terlebih dahulu.');
+      openModalAdmin();
+      return;
+    }
     const data = getData();
     if (data.length === 0) {
       alert('Tidak ada data untuk dihapus.');
@@ -585,3 +715,4 @@
 </script>
 </body>
 </html>
+

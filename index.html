@@ -145,7 +145,7 @@
       </div>
       <div>
         <h1 class="brand-serif text-xl sm:text-2xl font-bold text-white tracking-wide">Sistem Absensi Cadangan Dinas</h1>
-        <p class="text-dinas-50/70 text-xs sm:text-sm mt-0.5">Layanan pencatatan kehadiran pegawai — mode cadangan (offline/lokal)</p>
+        <p class="text-dinas-50/70 text-xs sm:text-sm mt-0.5">Layanan pencatatan kehadiran pegawai — mode cadangan (data terpusat ke admin)</p>
       </div>
     </div>
   </header>
@@ -155,7 +155,7 @@
     <!-- INFO BANNER -->
     <div class="bg-gold-100 border border-gold-500/40 text-dinas-900 rounded-md px-4 py-3 text-sm flex items-start gap-2">
       <svg class="h-5 w-5 flex-shrink-0 mt-0.5 text-gold-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      <p>Sistem ini digunakan sebagai <strong>cadangan sementara</strong> apabila sistem absensi utama sedang tidak dapat diakses. Data disimpan pada perangkat/peramban ini (localStorage). Segera pindahkan data ke sistem utama menggunakan fitur <strong>Download Rekap (Excel)</strong> setelah sistem utama normal kembali.</p>
+      <p>Sistem ini digunakan sebagai <strong>cadangan sementara</strong> apabila sistem absensi utama sedang tidak dapat diakses. Data absen setiap pegawai dikirim dan tersimpan terpusat (via Google Spreadsheet) sehingga dapat dipantau oleh admin dari perangkat manapun. Segera pindahkan data ke sistem utama menggunakan fitur <strong>Download Rekap (Excel)</strong> setelah sistem utama normal kembali.</p>
     </div>
 
     <!-- FORM CARD -->
@@ -215,6 +215,10 @@
         <h2 class="text-white font-semibold tracking-wide text-sm sm:text-base">Riwayat Absensi</h2>
         <div class="flex flex-wrap items-center gap-2 no-print">
           <span id="adminActions" class="hidden flex-wrap gap-2">
+            <button id="btnRefresh" class="inline-flex items-center gap-1.5 bg-dinas-600 hover:bg-dinas-700 text-white text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-md shadow transition-colors">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Muat Ulang Data
+            </button>
             <button id="btnCSV" class="inline-flex items-center gap-1.5 bg-gold-500 hover:bg-gold-600 text-dinas-900 text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-md shadow transition-colors">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M7 10l5 5 5-5M12 15V3"/></svg>
               Download Rekap (Excel)
@@ -265,7 +269,7 @@
     </section>
 
     <footer class="text-center text-xs text-dinas-500 pt-4 pb-8">
-      &copy; <span id="tahun"></span> Sistem Absensi Cadangan Dinas — Data tersimpan lokal pada perangkat ini.
+      &copy; <span id="tahun"></span> Sistem Absensi Cadangan Dinas — Data absen tersimpan terpusat dan dapat dipantau oleh admin.
     </footer>
   </main>
 
@@ -387,22 +391,34 @@
 
   updateAdminUI();
 
-  // ---------- Integrasi Google Spreadsheet ----------
+  // ---------- Integrasi Google Spreadsheet (SUMBER DATA TERPUSAT) ----------
+  // Semua orang (bukan hanya admin) yang mengisi absen akan mengirim datanya
+  // ke Spreadsheet ini lewat Apps Script. Admin (dan siapapun yang membuka
+  // halaman ini) akan MEMUAT tabel dari Spreadsheet yang sama, sehingga data
+  // absen dari perangkat/HP siapapun tetap terlihat di sisi admin.
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzZRL2rt6goTTn4t7lBbHJlpRqgNxxsY1QP8W0y0ZRztlRf5MGFEHI3qvUOGW-xrialmQ/exec';
 
+  let cachedData = [];         // salinan data terbaru di memori (hasil GET dari spreadsheet)
+  let sedangMemuat = false;
+
+  // Mengembalikan objek respons server (mis. {status:'ok'} atau
+  // {status:'duplikat', id, jamDatang}), atau null kalau gagal terkirim.
   function kirimKeSpreadsheet(payload) {
-    if (!SCRIPT_URL || SCRIPT_URL.includes('TEMPEL_URL')) return;
-    fetch(SCRIPT_URL, {
+    if (!SCRIPT_URL || SCRIPT_URL.includes('TEMPEL_URL')) return Promise.resolve(null);
+    return fetch(SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     })
-      .then(() => {
+      .then(res => res.json())
+      .then(hasil => {
         tandaiSinkron(true);
+        return hasil;
       })
       .catch(err => {
         console.error('Gagal sinkron ke spreadsheet:', err);
         tandaiSinkron(false);
+        return null;
       });
   }
 
@@ -410,34 +426,75 @@
     const el = document.getElementById('statusSync');
     if (!el) return;
     if (berhasil) {
-      el.textContent = 'Tersinkron ke spreadsheet';
+      el.textContent = 'Tersinkron ke spreadsheet admin';
       el.className = 'text-xs text-green-600';
     } else {
-      el.textContent = 'Gagal sinkron ke spreadsheet (data tetap tersimpan lokal)';
+      el.textContent = 'Gagal sinkron ke spreadsheet (periksa koneksi internet)';
       el.className = 'text-xs text-red-600';
     }
     setTimeout(() => { el.textContent = ''; }, 5000);
   }
 
-  // ---------- Utilitas ----------
+  // ---------- Utilitas Data ----------
+  // getData() sekarang membaca dari cache di memori (hasil muatDataDariServer()),
+  // BUKAN dari localStorage per-browser, supaya semua akun melihat data yang sama.
   function getData() {
+    return cachedData;
+  }
+
+  function simpanCacheLokal(data) {
+    cachedData = data;
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
-      console.error('Gagal membaca data localStorage:', e);
-      return [];
+      console.error('Gagal menyimpan cache lokal:', e);
     }
   }
 
-  function saveData(data) {
+  // Ambil data terbaru dari Spreadsheet (lewat Apps Script doGet) supaya
+  // data absen dari SEMUA pegawai (bukan cuma dari browser ini) ikut muncul.
+  async function muatDataDariServer(diam) {
+    if (sedangMemuat) return;
+    sedangMemuat = true;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      return true;
-    } catch (e) {
-      console.error('Gagal menyimpan data localStorage:', e);
-      alert('Gagal menyimpan data. Penyimpanan lokal browser mungkin penuh atau tidak didukung.');
-      return false;
+      const res = await fetch(SCRIPT_URL, { method: 'GET', cache: 'no-store' });
+      if (!res.ok) throw new Error('Respons server tidak OK');
+      const rows = await res.json();
+      const mapped = rows.map(r => {
+        let tampil = r.tanggalTampil;
+        if (!tampil && r.tanggal) {
+          const parts = String(r.tanggal).split('-');
+          if (parts.length === 3) {
+            tampil = formatTanggal(new Date(+parts[0], +parts[1] - 1, +parts[2]));
+          }
+        }
+        return {
+          id: r.id,
+          tanggal: r.tanggal,
+          tanggalTampil: tampil || r.tanggal,
+          nama: r.nama,
+          nip: r.nip != null ? String(r.nip) : '',
+          jabatan: r.jabatan,
+          lokasi: r.lokasi,
+          jamDatang: r.jamDatang || '',
+          jamPulang: r.jamPulang || ''
+        };
+      });
+      simpanCacheLokal(mapped);
+      renderTabel();
+      if (!diam) tandaiSinkron(true);
+    } catch (err) {
+      console.error('Gagal memuat data dari spreadsheet:', err);
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        cachedData = raw ? JSON.parse(raw) : [];
+      } catch (e2) {
+        cachedData = [];
+      }
+      renderTabel();
+      if (!diam) tandaiSinkron(false);
+    } finally {
+      sedangMemuat = false;
     }
   }
 
@@ -505,9 +562,17 @@
   }
 
   // ---------- Absen Datang ----------
-  document.getElementById('btnDatang').addEventListener('click', function () {
+  document.getElementById('btnDatang').addEventListener('click', async function () {
     const dataForm = validasiForm();
     if (!dataForm) return;
+
+    // Tarik dulu data terbaru dari spreadsheet supaya pengecekan "sudah
+    // absen atau belum" tidak berdasar cache HP yang mungkin sudah basi
+    // (mis. pegawai baru buka halaman setelah lama tidak dibuka).
+    const btn = this;
+    btn.disabled = true;
+    await muatDataDariServer(true);
+    btn.disabled = false;
 
     const now = new Date();
     const tglPendek = formatTanggalPendek(now);
@@ -532,27 +597,43 @@
       jamPulang: ''
     };
 
-    data.push(record);
-    if (saveData(data)) {
-      showMsg(`Absen Datang berhasil dicatat untuk ${dataForm.nama} pukul ${record.jamDatang}.`, 'success');
-      renderTabel();
-      kirimKeSpreadsheet({
-        action: 'datang',
-        id: record.id,
-        tanggal: record.tanggal,
-        nama: record.nama,
-        nip: record.nip,
-        jabatan: record.jabatan,
-        lokasi: record.lokasi,
-        jamDatang: record.jamDatang
-      });
-    }
+    // Tampilkan dulu di tabel lokal (optimistic), lalu kirim ke spreadsheet
+    // admin dan muat ulang supaya sinkron dengan data pegawai lain.
+    simpanCacheLokal([...data, record]);
+    renderTabel();
+    showMsg(`Absen Datang berhasil dicatat untuk ${dataForm.nama} pukul ${record.jamDatang}.`, 'success');
+    kirimKeSpreadsheet({
+      action: 'datang',
+      id: record.id,
+      tanggal: record.tanggal,
+      nama: record.nama,
+      nip: record.nip,
+      jabatan: record.jabatan,
+      lokasi: record.lokasi,
+      jamDatang: record.jamDatang
+    }).then(hasil => {
+      if (!hasil) return; // gagal kirim, biarkan tetap tampil optimistic, coba lagi nanti via refresh
+      if (hasil.status === 'duplikat') {
+        // Server (spreadsheet) sudah punya catatan Absen Datang untuk NIP ini
+        // hari ini -> buang entri duplikat yang barusan ditambahkan di layar
+        // ini, lalu muat ulang data asli dari server supaya tidak dobel.
+        showMsg(`Anda sudah tercatat Absen Datang hari ini pukul ${hasil.jamDatang}. Data disamakan dengan yang tercatat di server.`, 'error');
+      }
+      muatDataDariServer(true);
+    });
   });
 
   // ---------- Absen Pulang ----------
-  document.getElementById('btnPulang').addEventListener('click', function () {
+  document.getElementById('btnPulang').addEventListener('click', async function () {
     const dataForm = validasiForm();
     if (!dataForm) return;
+
+    // Sama seperti Absen Datang: tarik data terbaru dulu supaya pencarian
+    // record "belum pulang" milik NIP ini akurat, tidak berdasar cache basi.
+    const btn = this;
+    btn.disabled = true;
+    await muatDataDariServer(true);
+    btn.disabled = false;
 
     const now = new Date();
     const tglPendek = formatTanggalPendek(now);
@@ -572,21 +653,26 @@
       return;
     }
 
-    data[idx].jamPulang = formatJam(now);
-    // Perbarui juga data pegawai bila berubah
-    data[idx].nama = dataForm.nama;
-    data[idx].jabatan = dataForm.jabatan;
-    data[idx].lokasi = dataForm.lokasi;
+    const updated = data.map((d, i) => i === idx ? {
+      ...d,
+      jamPulang: formatJam(now),
+      nama: dataForm.nama,
+      jabatan: dataForm.jabatan,
+      lokasi: dataForm.lokasi
+    } : d);
 
-    if (saveData(data)) {
-      showMsg(`Absen Pulang berhasil dicatat untuk ${dataForm.nama} pukul ${data[idx].jamPulang}.`, 'success');
-      renderTabel();
-      kirimKeSpreadsheet({
-        action: 'pulang',
-        id: data[idx].id,
-        jamPulang: data[idx].jamPulang
-      });
-    }
+    simpanCacheLokal(updated);
+    renderTabel();
+    showMsg(`Absen Pulang berhasil dicatat untuk ${dataForm.nama} pukul ${updated[idx].jamPulang}.`, 'success');
+    kirimKeSpreadsheet({
+      action: 'pulang',
+      id: updated[idx].id,
+      nip: updated[idx].nip,
+      tanggal: updated[idx].tanggal,
+      jamPulang: updated[idx].jamPulang
+    }).then(hasil => {
+      if (hasil) muatDataDariServer(true);
+    });
   });
 
   // ---------- Render Tabel ----------
@@ -775,8 +861,16 @@
     }
   });
 
+  // ---------- Muat Ulang Data (Admin) ----------
+  const btnRefreshEl = document.getElementById('btnRefresh');
+  if (btnRefreshEl) {
+    btnRefreshEl.addEventListener('click', function () {
+      muatDataDariServer(false);
+    });
+  }
+
   // ---------- Hapus Semua Data ----------
-  document.getElementById('btnHapus').addEventListener('click', function () {
+  document.getElementById('btnHapus').addEventListener('click', async function () {
     if (!isAdmin()) {
       alert('Hanya admin/moderator yang dapat menghapus data. Silakan login terlebih dahulu.');
       openModalAdmin();
@@ -788,12 +882,22 @@
       return;
     }
     const konfirmasi = window.confirm(
-      `Apakah Anda yakin ingin menghapus SELURUH data absensi (${data.length} catatan)?\n\nTindakan ini tidak dapat dibatalkan. Pastikan Anda sudah mengunduh Rekap CSV sebelum melanjutkan.`
+      `Apakah Anda yakin ingin menghapus SELURUH data absensi (${data.length} catatan) di spreadsheet pusat?\n\nTindakan ini tidak dapat dibatalkan dan akan menghapus data milik semua pegawai. Pastikan Anda sudah mengunduh Rekap Excel sebelum melanjutkan.`
     );
     if (konfirmasi) {
+      const btn = this;
+      btn.disabled = true;
+      const berhasil = await kirimKeSpreadsheet({ action: 'hapusSemua' });
+      btn.disabled = false;
       localStorage.removeItem(STORAGE_KEY);
-      renderTabel();
-      showMsg('Seluruh data absensi berhasil dihapus.', 'success');
+      if (berhasil) {
+        await muatDataDariServer(true);
+        showMsg('Seluruh data absensi (di spreadsheet pusat) berhasil dihapus.', 'success');
+      } else {
+        cachedData = [];
+        renderTabel();
+        showMsg('Gagal menghapus data di spreadsheet pusat. Periksa koneksi internet lalu coba lagi.', 'error');
+      }
     }
   });
 
@@ -813,7 +917,21 @@
 
   // ---------- Inisialisasi ----------
   document.getElementById('tahun').textContent = new Date().getFullYear();
+
+  // Muat cache lokal dulu (biar tabel tidak kosong sesaat), lalu tarik data
+  // terbaru dari spreadsheet pusat supaya data absen semua pegawai tampil.
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    cachedData = raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    cachedData = [];
+  }
   renderTabel();
+  muatDataDariServer(true);
+
+  // Muat ulang otomatis tiap 30 detik supaya admin melihat absen terbaru
+  // dari pegawai lain tanpa perlu refresh halaman manual.
+  setInterval(() => muatDataDariServer(true), 30000);
 
 })();
 </script>
